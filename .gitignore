@@ -4,3 +4,6 @@
 *.npz
 *.joblib
 *.log
+*.parquet
+*.ubj
+*.pyc

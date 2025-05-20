@@ -2,11 +2,11 @@ import os
 import yaml
 import pandas as pd
 import numpy as np
+from models import logger
 from sklearn.model_selection import train_test_split
-from models.als.als import ALS
+from models.als.als import AlternatingLeastSquares
 from models.collaborative_filtering.user_user import UserUserCollaborativeFiltering
 from models.content_filtering.item_item import ItemItemContentFiltering
-from models.xgboost.xgboost import XGBoostRecommender
 
 class ModelTrainer:
     def __init__(self, config_path="config.yaml"):
@@ -29,7 +29,7 @@ class ModelTrainer:
     def train_als(self):
         data_key = self.trainer_cfg['als_data']
         data = self.load_data(data_key)
-        als = ALS()
+        als = AlternatingLeastSquares()
         if isinstance(data, np.lib.npyio.NpzFile):
             als.fit(data['arr_0'])
         else:
@@ -53,30 +53,11 @@ class ModelTrainer:
         item_item.save_to_cache(os.path.join(self.output_cfg['model_cache_dir'], 'item_item_sim_matrix.joblib'))
         self.models['item_item'] = item_item
 
-    def train_xgboost(self):
-        data_key = self.trainer_cfg['xgboost_data']
-        data = self.load_data(data_key)
-        xgb = XGBoostRecommender()
-        if isinstance(data, pd.DataFrame):
-            # Assume last column is target if present
-            X = data.iloc[:, :-1]
-            y = data.iloc[:, -1] if data.shape[1] > 1 else None
-            if y is not None:
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-                xgb.fit(X_train, y_train)
-            else:
-                raise ValueError("XGBoost expects features and target in the DataFrame")
-        else:
-            raise ValueError("XGBoost expects a DataFrame (csv)")
-        xgb.save_to_cache(os.path.join(self.output_cfg['model_cache_dir'], 'xgboost_model.joblib'))
-        self.models['xgboost'] = xgb
-
     def train_all(self):
         self.train_als()
         self.train_user_user()
         self.train_item_item()
-        self.train_xgboost()
 
 # Example usage:
-# trainer = ModelTrainer('config.yaml')
-# trainer.train_all()
+trainer = ModelTrainer('config.yaml')
+trainer.train_all()
