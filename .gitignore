@@ -1,3 +1,6 @@
 # Ignore all CSV and TXT files
 *.csv
 *.txt
+*.npz
+*.joblib
+*.log
