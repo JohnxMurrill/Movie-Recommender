@@ -10,13 +10,13 @@ import matplotlib.pyplot as plt
 # CONFIGURABLES
 PARQUET_PATH = 'data/processed_data/xgboost_training_data_cleaned.parquet'
 MODEL_PATH = os.path.join(os.path.dirname(__file__), '../models/xgb_model_gpu.json')
-BATCH_SIZE = 500_000  # For local testing, reduce to e.g. 100_000
+BATCH_SIZE = 1_000_000  # For local testing, reduce to e.g. 100_000
 N_ESTIMATORS = 100
-MAX_DEPTH = 10
-LEARNING_RATE = 0.1
+MAX_DEPTH = 8
+LEARNING_RATE = 0.2
 EARLY_STOPPING_ROUNDS = 7
 USE_GPU = True  # Set to False to use CPU
-SAMPLE_ROWS = 15_000_000  # For local testing, set low; for EC2, set to None for full data
+SAMPLE_ROWS = 20_000_000  # For local testing, set low; for EC2, set to None for full data
 CHECKPOINT_DIR = 'xgb_checkpoints/'
 CHECKPOINT_INTERVAL = 10  # Save every N boosting rounds
 

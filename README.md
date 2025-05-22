@@ -23,10 +23,35 @@ Movie-Recommender/
 ├── README.md            # Project documentation
 ```
 
+## Feature Engineering
+Feature engineering includes:
+- Creation of an extensive user feature table (demographics, genre preferences, meta-tags, etc.)
+- Movie feature table (genres, tags, embeddings, awards, etc.)
+- User-movie interaction matrix (implicit and explicit feedback, confidence scaling)
+
+## Models
+### Alternating Least Squares (ALS)
+Matrix factorization model for implicit feedback, uncovering latent factors that explain observed user-movie interactions.
+
+### Logistic Matrix Factorization (LMF)
+Probabilistic matrix factorization model optimized for implicit feedback.
+
+### Bayesian Personalized Ranking (BPR)
+Pairwise ranking model that optimizes for personalized ranking of movies for each user.
+
+### XGBoost
+Gradient boosting model trained on a subset of the data, used for hybrid recommendation and feature importance analysis.
+
+### Content and Collaborative Filtering
+Combines content-based features (genres, tags, embeddings) with collaborative filtering models for improved recommendations.
+
 ## Development Roadmap
 - [x] Movie and user feature engineering
 - [x] Modular model architecture
-- [ ] Ensemble controller for combining predictions
-- [ ] Asynchronous prediction API (AWS Lambda integration)
+- [x] Ensemble controller for combining predictions
+- [x] Asynchronous prediction API
 - [ ] Add more models to the ensemble
+- [ ] AWS Lambda / API
 - [ ] End-to-end evaluation and deployment
+
+---

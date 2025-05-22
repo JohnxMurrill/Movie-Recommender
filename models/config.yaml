@@ -1,0 +1,19 @@
+# config.yaml for Movie Recommender ModelTrainer
+# Specify directories and data sources for training
+
+data:
+  user_movie_interactions: "../data/processed_data/user_movie_interactions.npz"
+  pre_processed_movies: "../data/processed_data/pre_processed_movies.csv"
+  pre_processed_users: "../data/processed_data/pre_processed_users.csv"
+
+trainer:
+  # Choose which data to use for training each model
+  als_data: "user_movie_interactions"       # Alternating Least Squares
+  user_user_data: "user_movie_interactions" # User-User Collaborative Filtering
+  item_item_data: "user_movie_interactions" # Item-Item Collaborative Filtering
+  bpr_data : "user_movie_interactions"      # Bayesian Personalized Ranking
+  lmf_data: "user_movie_interactions"       # Logistic Matrix Factorization
+
+output:
+  model_cache_dir: "models/models/"
+  logs_dir: "preprocessing/"

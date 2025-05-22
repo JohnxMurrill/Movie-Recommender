@@ -1,12 +1,18 @@
 import os
 import yaml
+import tqdm
 import pandas as pd
 import numpy as np
-from models import logger
+import torch as nn
+from torch.utils.data import DataLoader
+
+from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
-from models.als.als import AlternatingLeastSquares
-from models.collaborative_filtering.user_user import UserUserCollaborativeFiltering
-from models.content_filtering.item_item import ItemItemContentFiltering
+from scipy import sparse
+from als.als import AlternatingLeastSquares
+from bayesian_personalized_rankings.bpr import BPR
+from logistic_matrix_factorization.lmf import LMF
+from neural_collaborative_filtering.ncf import NeuralCollaborativeFiltering, NCFTrainer
 
 class ModelTrainer:
     def __init__(self, config_path="config.yaml"):
@@ -29,34 +35,64 @@ class ModelTrainer:
     def train_als(self):
         data_key = self.trainer_cfg['als_data']
         data = self.load_data(data_key)
+        csr_matrix = sparse.csr_matrix((data['data'], data['indices'], data['indptr']), shape=data['shape'])
         als = AlternatingLeastSquares()
         if isinstance(data, np.lib.npyio.NpzFile):
-            als.fit(data['arr_0'])
+            als.fit(csr_matrix)
         else:
             raise ValueError("ALS expects a user-movie interaction matrix (npz)")
-        als.save_to_cache(os.path.join(self.output_cfg['model_cache_dir'], 'als_factors.joblib'))
         self.models['als'] = als
+    
+    def fit_NCF(self):
+        device_cpu = "cpu"
+        learning_rate = 0.001
+        weight_decay = 1e-4
+        batch_size = 64
+        epochs = 20
+        model_name = "ncf"
+        device = nn.device(device_cpu)
+        data = pd.read_csv("../data/ml-32m/ratings.csv")
+        train_length = int(len(data) * 0.8)
+        valid_length = int(len(data) * 0.1)
+        test_length = len(data) - train_length - valid_length
+        train_dataset, valid_dataset, test_dataset = nn.utils.data.random_split(
+            data, (train_length, valid_length, test_length))
+        train_data_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=4)
+        valid_data_loader = DataLoader(valid_dataset, batch_size=batch_size, num_workers=4)
+        test_data_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=4)
+        
 
-    def train_user_user(self):
-        data_key = self.trainer_cfg['user_user_data']
+    
+    def train_bpr(self):
+        data_key = self.trainer_cfg['bpr_data']
         data = self.load_data(data_key)
-        user_user = UserUserCollaborativeFiltering(data['arr_0'])
-        user_user.compute_similarity()
-        user_user.save_to_cache(os.path.join(self.output_cfg['model_cache_dir'], 'user_user_sim_matrix.joblib'))
-        self.models['user_user'] = user_user
-
-    def train_item_item(self):
-        data_key = self.trainer_cfg['item_item_data']
+        if isinstance(data, np.lib.npyio.NpzFile):
+            csr_matrix = sparse.csr_matrix((data['data'], data['indices'], data['indptr']), shape=data['shape'])
+            bpr = BPR(csr_matrix)
+        else:
+            raise ValueError("BPR expects a user-movie interaction matrix (npz)")
+        bpr.fit()
+        bpr.save_to_cache()
+        self.models['bpr'] = bpr
+    
+    def train_lmf(self):
+        data_key = self.trainer_cfg['lmf_data']
         data = self.load_data(data_key)
-        item_item = ItemItemContentFiltering(data)
-        item_item.compute_similarity()
-        item_item.save_to_cache(os.path.join(self.output_cfg['model_cache_dir'], 'item_item_sim_matrix.joblib'))
-        self.models['item_item'] = item_item
+        if isinstance(data, np.lib.npyio.NpzFile):
+            csr_matrix = sparse.csr_matrix((data['data'], data['indices'], data['indptr']), shape=data['shape'])
+            lmf = LMF(csr_matrix)
+        else:
+            raise ValueError("LMF expects a user-movie interaction matrix (npz)")
+        lmf.fit()
+        lmf.save_to_cache()
+        self.models['lmf'] = lmf
 
     def train_all(self):
         self.train_als()
-        self.train_user_user()
-        self.train_item_item()
+        # self.train_user_user()
+        # self.train_item_item()
+        self.train_bpr()
+        self.train_lmf()
 
 # Example usage:
 trainer = ModelTrainer('config.yaml')
