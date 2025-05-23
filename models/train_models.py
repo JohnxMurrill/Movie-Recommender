@@ -3,9 +3,10 @@ import yaml
 import tqdm
 import pandas as pd
 import numpy as np
-import torch as nn
+import torch
 from torch.utils.data import DataLoader
-
+from torch.optim import Adam
+import torch.nn as nn
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from scipy import sparse
@@ -44,23 +45,50 @@ class ModelTrainer:
         self.models['als'] = als
     
     def fit_NCF(self):
-        device_cpu = "cpu"
-        learning_rate = 0.001
-        weight_decay = 1e-4
-        batch_size = 64
-        epochs = 20
-        model_name = "ncf"
-        device = nn.device(device_cpu)
-        data = pd.read_csv("../data/ml-32m/ratings.csv")
-        train_length = int(len(data) * 0.8)
-        valid_length = int(len(data) * 0.1)
-        test_length = len(data) - train_length - valid_length
-        train_dataset, valid_dataset, test_dataset = nn.utils.data.random_split(
-            data, (train_length, valid_length, test_length))
-        train_data_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=4)
-        valid_data_loader = DataLoader(valid_dataset, batch_size=batch_size, num_workers=4)
-        test_data_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=4)
-        
+        batch_size = 1024
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        data = pd.read_csv("../data/ml-32m/ratings.csv").sample(frac=0.1, random_state=42)
+
+        # Map userId and movieId to contiguous indices
+        user_ids = data['userId'].unique()
+        movie_ids = data['movieId'].unique()
+        user2idx = {user_id: idx for idx, user_id in enumerate(user_ids)}
+        movie2idx = {movie_id: idx for idx, movie_id in enumerate(movie_ids)}
+        num_users = len(user_ids)
+        num_items = len(movie_ids)
+        embedding_dim = 32  # or set from config
+
+        # Prepare dataset as tensors
+        data['user_idx'] = data['userId'].map(user2idx)
+        data['movie_idx'] = data['movieId'].map(movie2idx)
+        user_tensor = torch.tensor(data['user_idx'].values, dtype=torch.long)
+        item_tensor = torch.tensor(data['movie_idx'].values, dtype=torch.long)
+        rating_tensor = torch.tensor(data['rating'].values, dtype=torch.float)
+
+        # Create TensorDataset and DataLoader
+        dataset = torch.utils.data.TensorDataset(user_tensor, item_tensor, rating_tensor)
+        train_length = int(len(dataset) * 0.8)
+        valid_length = int(len(dataset) * 0.1)
+        test_length = len(dataset) - train_length - valid_length
+        train_dataset, valid_dataset, test_dataset = torch.utils.data.random_split(
+            dataset, (train_length, valid_length, test_length))
+        train_data_loader = DataLoader(
+            train_dataset, 
+            batch_size=batch_size, 
+            shuffle=True, 
+            num_workers=4,
+            pin_memory=True
+        )
+
+        # Initialize model, optimizer, and loss
+        model = NeuralCollaborativeFiltering(num_users, num_items, embedding_dim).to(device)
+        optimizer = Adam(model.parameters(), lr=0.001)
+        criterion = nn.MSELoss()  # For explicit ratings; use nn.BCELoss() for implicit
+
+        # Train the model
+        trainer = NCFTrainer(model, optimizer, criterion, device)
+        trainer.train(train_data_loader, num_epochs=20)
+        model.save_to_cache()
 
     
     def train_bpr(self):
@@ -88,12 +116,12 @@ class ModelTrainer:
         self.models['lmf'] = lmf
 
     def train_all(self):
-        self.train_als()
-        # self.train_user_user()
-        # self.train_item_item()
-        self.train_bpr()
-        self.train_lmf()
+        # self.train_als()
+        # self.train_bpr()
+        # self.train_lmf()
+        self.fit_NCF()
 
-# Example usage:
-trainer = ModelTrainer('config.yaml')
-trainer.train_all()
+if __name__ == "__main__":
+    # Example usage
+    trainer = ModelTrainer('config.yaml')
+    trainer.train_all()

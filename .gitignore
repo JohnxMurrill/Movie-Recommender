@@ -7,3 +7,6 @@
 *.parquet
 *.ubj
 *.pyc
+*.parquet
+*.json
+*.pt
